@@ -2,6 +2,7 @@
 #include <random>
 #include <functional>
 #include <algorithm>
+#include <string>
 
 #define PII std::pair<int, int>
 
@@ -19,6 +20,13 @@ std::string message = "";
 
 //勝者のプレイヤー番号
 std::vector<int> wonPlayer;
+
+//ストレートが出たかのフラグ(メッセージ用)
+bool bStraight = false;
+bool bStraightMulti = false;
+
+//ペアが出たかのフラグ(メッセージ用)
+bool bPair = false;
 
 //プレイヤー構造体様だぞ
 struct Player
@@ -70,6 +78,7 @@ void Initialize(void)
 {
 	message = "";
 	wonPlayer.clear();
+	bStraight = bPair = bStraightMulti = false;
 }
 
 //ゲーム最初のダイス振るやつ
@@ -80,17 +89,16 @@ void DiceRoll(Player* p)
 	{
 		for (int j = 0; j < DiceCount; j++)
 		{
-			//p[i].val[j] = dice_roll();
-			p[i].val[j] = 4 - i;
+			p[i].val[j] = dice_roll();
 		}
 	}
 
 	//デバッグ用決め打ちダイス
 	/**
-	p[0].val[0] = 4; p[0].val[1] = 4; p[0].val[2] = 4;
-	p[1].val[0] = 4; p[1].val[1] = 4; p[1].val[2] = 4;
-	p[2].val[0] = 4; p[2].val[1] = 4; p[2].val[2] = 4;
-	p[3].val[0] = 1; p[3].val[1] = 1; p[3].val[2] = 1;
+	p[0].val[0] = 2; p[0].val[1] = 2; p[0].val[2] = 3;
+	p[1].val[0] = 4; p[1].val[1] = 5; p[1].val[2] = 6;
+	p[2].val[0] = 2; p[2].val[1] = 5; p[2].val[2] = 6;
+	p[3].val[0] = 3; p[3].val[1] = 2; p[3].val[2] = 1;
 	/**/
 
 	//振った結果の表示
@@ -179,16 +187,63 @@ void StraightWiner(Player* p, std::vector<PII>& list)
 	//std::cout << "ストレートお化けあらわる" << std::endl;
 	if (list.size() == 1)
 	{
+		message = "・Player" + std::to_string(list[0].first + 1) + "のみ役(連番)がある";
 		wonPlayer.push_back(list[0].first);
 	}
 	else
 	{
-		int straight = list[0].second;
-		for (int i = 1; i < list.size(); i++)
+		bStraightMulti = true;
+		message = "・Player";
+		for (int i = 0; i < list.size(); i++)
 		{
-			if (straight < list[i].second)
+			message += std::to_string(list[i].first + 1);
+			if (i + 1 != list.size())
 			{
-				straight = list[i].second;
+				message += "、";
+			}
+		}
+		//ストレート！！
+		std::vector<PII> StraightList = list;
+		//ループフラグ
+		bool bEx = false;
+		do
+		{
+			//フラグ折の天才
+			bEx = false;
+			//とりまデータもっとく
+			int straight = StraightList[0].second;
+			//ストレートお化けのデタ目が重なってる場合
+			std::vector<PII> tmp{ StraightList[0] };
+			//他のストレートお化けと数字バトルを繰り広げる
+			for (int i = 1; i < StraightList.size(); i++)
+			{
+				//同点だとぉ！？
+				if (straight == StraightList[i].second)
+				{
+					tmp.push_back(StraightList[i]);
+					continue;
+				}
+				else if (straight < StraightList[i].second)
+				{
+					straight = list[i].second;
+					tmp.clear();
+					tmp.push_back(StraightList[i]);
+					bEx = true;
+				}
+			}
+			StraightList = tmp;
+		} while (bEx);
+
+		message += "が役(連番)が成立しているが、Player";
+		if (StraightList.size() == 1)
+		{
+			wonPlayer.push_back(StraightList[0].first);
+		}
+		else
+		{
+			for (int i = 0; i < StraightList.size(); i++)
+			{
+				wonPlayer.push_back(StraightList[i].first);
 			}
 		}
 	}
@@ -197,7 +252,80 @@ void StraightWiner(Player* p, std::vector<PII>& list)
 //ペア魔人での勝者決定
 void PairWiner(Player* p, std::vector<PII>& list)
 {
-	std::cout << "ペア魔人あらわる" << std::endl;
+	//std::cout << "ペア魔人あらわる" << std::endl;
+	if (list.size() == 1)
+	{
+		if (!bStraight)
+		{
+			message = "・Player" + std::to_string(list[0].first + 1) + "のみ役(ペア)がある";
+			wonPlayer.push_back(list[0].first);
+		}
+		else
+		{
+			message = "・Player" + std::to_string(list[0].first + 1) + "が役(ペア)が成立しているが、Player";
+		}
+	}
+	else
+	{
+		message = "・Player";
+		for (int i = 0; i < list.size(); i++)
+		{
+			message += std::to_string(list[i].first + 1);
+			if (i + 1 != list.size())
+			{
+				message += "、";
+			}
+		}
+		//ペア！！
+		std::vector<PII> PairList = list;
+		//ループフラグ
+		bool bEx = false;
+		do
+		{
+			//フラグ折の天才
+			bEx = false;
+			//とりまデータもっとく
+			int pair = PairList[0].second;
+			//ペア魔人のデタ目が重なってる場合
+			std::vector<PII> tmp{ PairList[0] };
+			//他のペア魔人と数字バトルを繰り広げる
+			for (int i = 1; i < PairList.size(); i++)
+			{
+				//同点だとぉ！？
+				if (pair == PairList[i].second)
+				{
+					tmp.push_back(PairList[i]);
+					continue;
+				}
+				else if (pair < PairList[i].second)
+				{
+					pair = list[i].second;
+					tmp.clear();
+					tmp.push_back(PairList[i]);
+					bEx = true;
+				}
+			}
+			PairList = tmp;
+		} while (bEx);
+
+		message += "が役(ペア)が成立しているが、Player";
+
+		if (bStraight)
+		{
+			return;
+		}
+		if (PairList.size() == 1)
+		{
+			wonPlayer.push_back(PairList[0].first);
+		}
+		else
+		{
+			for (int i = 0; i < PairList.size(); i++)
+			{
+				wonPlayer.push_back(PairList[i].first);
+			}
+		}
+	}
 }
 
 //合計での勝者決定
@@ -219,6 +347,15 @@ void SumWiner(Player* p)
 	{
 		wonPlayer.push_back(sum[win++].first);
 	} while (win < PlayerCount && sum[win - 1].second == sum[win].second);
+
+	if (wonPlayer.size() == 1)
+	{
+		message = "・数字の合計が一番大きいPlayer";
+	}
+	else
+	{
+		message = "・数字の合計が同じPlayer";
+	}
 }
 
 //ゲーム本体
@@ -259,7 +396,7 @@ void Game(void)
 	if (straightPlayer.size())
 	{
 		StraightWiner(p, straightPlayer);
-		return;
+		bStraight = true;
 	}
 
 	//ペア魔人の捜索
@@ -275,12 +412,17 @@ void Game(void)
 	//ペア魔人が存在するか否かで処理を変えよう
 	if (pairPlayer.size())
 	{
+		bPair = true;
 		PairWiner(p, pairPlayer);
 		return;
 	}
 
-	//残る処理は雑魚どもよ。
-	SumWiner(p);
+	if (!bStraight)
+	{
+		//残る処理は雑魚どもよ。
+		SumWiner(p);
+	}
+
 }
 
 //勝者の表示をしてあげよう
@@ -305,23 +447,32 @@ void PrintWonMessage(void)
 	}
 
 	//理由の表示
-	std::cout << message.c_str();
+	std::cout << message;
+	
+	if (wonPlayer.size() == 1 && bStraight && !bPair)
+	{
+		return;
+	}
+
 	for (int i = 0; i < wonPlayer.size(); i++)
 	{
 		if (i != 0)
 		{
-			std::cout << "と";
+			std::string tmpMessage = (bStraight || bPair) ? "、" : "と";
+			std::cout << tmpMessage;
 		}
 		std::cout << wonPlayer[i] + 1;
 	}
 
 	if (wonPlayer.size() == 1)
 	{
-		std::cout << "の勝ち" << std::endl;
+		std::string wonMessage = bStraight ? ((bPair && !bStraightMulti) ? "が上の役(連番)が成立している" : "のほうが数字が大きい") : (bPair ? "のほうが数字が大きい" : "の勝ち");
+		std::cout << wonMessage << std::endl;
 	}
 	else
 	{
-		std::cout << "で引き分け" << std::endl;
+		std::string wonMessage = bStraight ? "が役(連番)で引き分け" : (bPair ? "が役(ペア)で引き分け" : "で引き分け");
+		std::cout << wonMessage << std::endl;
 	}
 }
 
